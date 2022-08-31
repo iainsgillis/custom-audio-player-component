@@ -2,25 +2,33 @@ class AudioPlayer extends HTMLElement {
   isPlaying = false;
   isInitialized = false;
   userVolume = 1;
+  customAudioSvgPath = "/user/themes/dos-hermanos/node_modules/custom-audio/svg"
 
   buttonBackgroundSvgCss = `
   [data-playing='paused'] {
-    background-image: url(./custom-audio/assets/player-play.svg);
+    background-image: url(${this.customAudioSvgPath}/player-play.svg);
   }
   [data-playing='playing'] {
-    background-image: url(./custom-audio/assets/player-pause.svg);
+    background-image: url(${this.customAudioSvgPath}/player-pause.svg);
   }
   [data-volume='on'] {
-    background-image: url(./custom-audio/assets/volume.svg);
+    background-image: url(${this.customAudioSvgPath}/volume.svg);
   }
   [data-volume='mid'] {
-    background-image: url(./custom-audio/assets/volume-2.svg);
+    background-image: url(${this.customAudioSvgPath}/volume-2.svg);
   }
   [data-volume='silent'] {
-    background-image: url(./custom-audio/assets/volume-3.svg);
+    background-image: url(${this.customAudioSvgPath}/volume-3.svg);
   }
   [data-volume='off'] {
-    background-image: url(./custom-audio/assets/volume-off.svg);
+    background-image: url(${this.customAudioSvgPath}/volume-off.svg);
+  }
+  [data-loading] {
+    animation: blink 1s ease alternate infinite;
+  }
+  @keyframes blink {
+    from { opacity: 0.75; }
+    to { opacity: 0.25; }
   }
   `;
 
@@ -30,21 +38,7 @@ class AudioPlayer extends HTMLElement {
     margin: 12px 0;
     width: 100%;
   }
-  [type=range]::-moz-focus-outer {
-    border: 0;
-  }
-  [type=range]:focus {
-    outline: 0;
-  }
-  [type=range]:focus::-webkit-slider-runnable-track {
-    background: white;
-  }
-  [type=range]:focus::-ms-fill-lower {
-    background: hsl(215deg, 20%, 90%);
-  }
-  [type=range]:focus::-ms-fill-upper {
-    background: white;
-  }
+ 
   [type=range]::-webkit-slider-runnable-track {
     cursor: default;
     height: 6px;
@@ -124,6 +118,12 @@ class AudioPlayer extends HTMLElement {
   [type=range]:disabled::-webkit-slider-thumb, [type=range]:disabled::-moz-range-thumb, [type=range]:disabled::-ms-thumb, [type=range]:disabled::-webkit-slider-runnable-track, [type=range]:disabled::-ms-fill-lower, [type=range]:disabled::-ms-fill-upper {
     cursor: not-allowed;
   }
+  :disabled {
+    filter: grayscale(1);
+    cursor: not-allowed !important;
+  }
+
+
   `;
 
   constructor() {
@@ -136,9 +136,11 @@ class AudioPlayer extends HTMLElement {
   }
 
   initAudio() {
+    if (this.isInitialized) return;
     this.audioCtx = new AudioContext();
     this.gainNode = new GainNode(this.audioCtx);
     this.audioSrc = this.audioCtx.createMediaElementSource(this.audio);
+    this.audio.currentTime = parseFloat(this.progressBar.value, 10);
     this.audioSrc.connect(this.gainNode).connect(this.audioCtx.destination);
     this.isInitialized = true;
   }
@@ -154,6 +156,7 @@ class AudioPlayer extends HTMLElement {
       this.wrapper.classList.remove("playing");
       this.isPlaying = false;
     } else {
+      this.audio.currentTime = parseFloat(this.progressBar.value, 10);
       await this.audio.play();
       this.playButton.textContent = "pause";
       this.playButton.dataset.playing = "playing";
@@ -180,7 +183,9 @@ class AudioPlayer extends HTMLElement {
   }
 
   handleAudioEnded() {
-    this.audio.currentTime = this.progressBar.value = 0;
+    this.audio.currentTime = 0;
+    this.progressBar.value = "0";
+    this.currentTime.textContent = "0:00";
     this.playButton.textContent = "play";
     this.playButton.dataset.playing = "paused";
     this.wrapper.classList.remove("playing");
@@ -191,6 +196,10 @@ class AudioPlayer extends HTMLElement {
     const d = this.audio.duration;
     this.progressBar.setAttribute("max", d);
     this.trackDuration.textContent = this.formatTime(d);
+    this.volumeButton.removeAttribute("disabled");
+    this.playButton.removeAttribute("disabled");
+    this.progressBar.removeAttribute("disabled");
+    this.wrapper.removeAttribute("data-loading");
   }
 
   handleTimeUpdated() {
@@ -200,17 +209,30 @@ class AudioPlayer extends HTMLElement {
   }
 
   handleInput() {
+    this.initAudio();
     this.audio.currentTime = this.progressBar.value;
-    this.currentTime.textContent = this.formatTime(this.audio.currentTime);
+    this.currentTime.textContent = this.formatTime(this.progressBar.value);
   }
-
+  
   handleKeyUp(event) {
+    let newTimeVal;
+    this.initAudio();
     switch (event.key) {
       case "ArrowDown":
+        if (event.target.getAttribute("id") === "progress") event.preventDefault();
         this.adjustVolume("down");
         break;
-      case "ArrowUp":
+        case "ArrowUp":
+        if (event.target.getAttribute("id") === "progress") event.preventDefault();
         this.adjustVolume("up");
+        break;
+      case "ArrowLeft":
+        if (event.target.getAttribute("id") === "progress") event.preventDefault();
+        newTimeVal = this.skipBack(5);
+        break;
+      case "ArrowRight":
+        if (event.target.getAttribute("id") === "progress") event.preventDefault();
+        newTimeVal = this.skipAhead(5);
         break;
       case "m":
         this.toggleVolume();
@@ -237,23 +259,21 @@ class AudioPlayer extends HTMLElement {
         this.seekTo(event.key);
         break;
     }
+    if (newTimeVal) {
+      this.currentTime.textContent = this.formatTime(newTimeVal);
+      this.progressBar.value = newTimeVal;
+    }
   }
 
   addEventListeners() {
     this.playButton.addEventListener("click", this.togglePlaying.bind(this));
     this.volumeButton.addEventListener("click", this.toggleVolume.bind(this));
-    this.audio.addEventListener(
-      "loadedmetadata",
-      this.handleLoadedMetadata.bind(this)
-    );
-    this.audio.addEventListener(
-      "timeupdate",
-      this.handleTimeUpdated.bind(this)
-    );
+    this.audio.addEventListener("durationchange",this.handleLoadedMetadata.bind(this));
+    this.audio.addEventListener("timeupdate",this.handleTimeUpdated.bind(this));
     this.audio.addEventListener("ended", this.handleAudioEnded.bind(this));
     this.progressBar.addEventListener("input", this.handleInput.bind(this));
-    this.wrapper.addEventListener("keyup", this.handleKeyUp.bind(this));
-    this.progressBar.addEventListener("keyup", (e) => {
+    this.wrapper.addEventListener("keydown", this.handleKeyUp.bind(this));
+    this.progressBar.addEventListener("keydown", (e) => {
       if (e.code === "Space") {
         this.togglePlaying();
       }
@@ -279,15 +299,17 @@ class AudioPlayer extends HTMLElement {
     this.setVolumeIcon();
   }
 
-  skipAhead() {
+  skipAhead(n = 10) {
     this.audio.currentTime = Math.min(
       this.audio.duration,
-      this.audio.currentTime + 10
+      this.audio.currentTime + n
     );
+    return this.audio.currentTime
   }
-
-  skipBack() {
-    this.audio.currentTime = Math.max(0, this.audio.currentTime - 10);
+  
+  skipBack(n = 10) {
+    this.audio.currentTime = Math.max(0, this.audio.currentTime - n);
+    return this.audio.currentTime
   }
 
   seekTo(key) {
@@ -337,6 +359,19 @@ class AudioPlayer extends HTMLElement {
 * {
   box-sizing: border-box;
 }
+
+.sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: auto;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  white-space: nowrap;
+}
+
 .audio-wrapper {
   min-height: 3rem;
   min-width: 100px;
@@ -351,11 +386,11 @@ class AudioPlayer extends HTMLElement {
 }
 
 .playing {
-  border: 1px solid var(--color-primary);
+  border: 1px solid var(--color-playing, var(--color-primary));
   box-shadow:
-    0 0 2px 2px var(--color-primary), 
+    0 0 2px 2px var(--color-playing, var(--color-primary)), 
     0 0 4px 4px white,
-    0 0 6px 6px var(--color-primary);
+    0 0 6px 6px var(--color-playing, var(--color-primary));
 }
 
 button {
@@ -385,20 +420,38 @@ ${this.buttonBackgroundSvgCss}
 ${this.inputRangeCss}
 
 </style>
-<div class="audio-wrapper">
-  <audio preload="metadata" style="display: none"></audio>
-  <button title="toggle play/pause" data-playing="paused">${this.playText}</button>
+<div class="audio-wrapper" data-loading>
+  <audio preload="none" style="display: none"></audio>
+  <label class="sr-only" for="progress">This input is used as the progress bar for the playback of this track. Press "k" to toggle play/pause; press "m" to toggle mute"; press j or l to skip back or forward by 10 seconds; press left or right arrow to skip back or forward by 5 seconds. Increase and decrease volume with the up and down arrow keys.</label>
+  <button title="toggle play/pause" data-playing="paused" disabled>${this.playText}</button>
   <div><span id="currentTime">0:00</span><span id="sep">/</span><span id="trackDuration">0:00</span></div>
-  <input id="progress" type="range" min="0" max="100" value="0" />
-  <button title="toggle mute" data-volume="on">${this.volumeText}</button>
+  <input id="progress" type="range" min="0" max="100" value="0" disabled/>
+  <button title="toggle mute" data-volume="on" disabled>${this.volumeText}</button>
 </div>
 `;
   }
 
-  connectedCallback() {}
+  makeLazy = (target) => {
+    const intersectionObserver = new IntersectionObserver(
+      (entries, observer) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.audio.setAttribute("preload", "metadata");
+            observer.disconnect();
+          }
+        });
+      }
+    );
+    intersectionObserver.observe(target);
+  };
+
+  connectedCallback() {
+    this.makeLazy(this.shadowRoot.host);
+  }
   disconnectedCallback() {}
   attributeChangedCallback(attrName, oldVal, newVal) {}
   adoptedCallback() {}
+
 }
 
 customElements.define("audio-player", AudioPlayer);
