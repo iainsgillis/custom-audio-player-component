@@ -2,26 +2,39 @@ class AudioPlayer extends HTMLElement {
   isPlaying = false;
   isInitialized = false;
   userVolume = 1;
-  customAudioSvgPath = "/user/themes/dos-hermanos/node_modules/custom-audio/svg"
+  customAudioSvgPath = "/user/themes/dos-hermanos/node_modules/custom-audio/svg";
 
   buttonBackgroundSvgCss = `
+  button[data-playing], button[data-volume] {
+    height: 24px;
+    width: 24px;
+    margin-inline: 4px;
+    padding-inline: 12px;
+    background-color: var(--color-audioplayer-svg, black);
+  }
   [data-playing='paused'] {
-    background-image: url(${this.customAudioSvgPath}/player-play.svg);
+    -webkit-mask-image: url(${this.customAudioSvgPath}/player-play.svg);
+    mask-image: url(${this.customAudioSvgPath}/player-play.svg);
   }
   [data-playing='playing'] {
-    background-image: url(${this.customAudioSvgPath}/player-pause.svg);
+    -webkit-mask-image: url(${this.customAudioSvgPath}/player-pause.svg);
+    mask-image: url(${this.customAudioSvgPath}/player-pause.svg);
   }
   [data-volume='on'] {
-    background-image: url(${this.customAudioSvgPath}/volume.svg);
+    -webkit-mask-image: url(${this.customAudioSvgPath}/volume.svg);
+    mask-image: url(${this.customAudioSvgPath}/volume.svg);
   }
   [data-volume='mid'] {
-    background-image: url(${this.customAudioSvgPath}/volume-2.svg);
+    -webkit-mask-image: url(${this.customAudioSvgPath}/volume-2.svg);
+    mask-image: url(${this.customAudioSvgPath}/volume-2.svg);
   }
   [data-volume='silent'] {
-    background-image: url(${this.customAudioSvgPath}/volume-3.svg);
+    -webkit-mask-image: url(${this.customAudioSvgPath}/volume-3.svg);
+    mask-image: url(${this.customAudioSvgPath}/volume-3.svg);
   }
   [data-volume='off'] {
-    background-image: url(${this.customAudioSvgPath}/volume-off.svg);
+    -webkit-mask-image: url(${this.customAudioSvgPath}/volume-off.svg);
+    mask-image: url(${this.customAudioSvgPath}/volume-off.svg);
   }
   [data-loading] {
     animation: blink 1s ease alternate infinite;
@@ -213,25 +226,29 @@ class AudioPlayer extends HTMLElement {
     this.audio.currentTime = this.progressBar.value;
     this.currentTime.textContent = this.formatTime(this.progressBar.value);
   }
-  
+
   handleKeyUp(event) {
     let newTimeVal;
     this.initAudio();
     switch (event.key) {
       case "ArrowDown":
-        if (event.target.getAttribute("id") === "progress") event.preventDefault();
+        if (event.target.getAttribute("id") === "progress")
+          event.preventDefault();
         this.adjustVolume("down");
         break;
-        case "ArrowUp":
-        if (event.target.getAttribute("id") === "progress") event.preventDefault();
+      case "ArrowUp":
+        if (event.target.getAttribute("id") === "progress")
+          event.preventDefault();
         this.adjustVolume("up");
         break;
       case "ArrowLeft":
-        if (event.target.getAttribute("id") === "progress") event.preventDefault();
+        if (event.target.getAttribute("id") === "progress")
+          event.preventDefault();
         newTimeVal = this.skipBack(5);
         break;
       case "ArrowRight":
-        if (event.target.getAttribute("id") === "progress") event.preventDefault();
+        if (event.target.getAttribute("id") === "progress")
+          event.preventDefault();
         newTimeVal = this.skipAhead(5);
         break;
       case "m":
@@ -268,8 +285,14 @@ class AudioPlayer extends HTMLElement {
   addEventListeners() {
     this.playButton.addEventListener("click", this.togglePlaying.bind(this));
     this.volumeButton.addEventListener("click", this.toggleVolume.bind(this));
-    this.audio.addEventListener("durationchange",this.handleLoadedMetadata.bind(this));
-    this.audio.addEventListener("timeupdate",this.handleTimeUpdated.bind(this));
+    this.audio.addEventListener(
+      "durationchange",
+      this.handleLoadedMetadata.bind(this)
+    );
+    this.audio.addEventListener(
+      "timeupdate",
+      this.handleTimeUpdated.bind(this)
+    );
     this.audio.addEventListener("ended", this.handleAudioEnded.bind(this));
     this.progressBar.addEventListener("input", this.handleInput.bind(this));
     this.wrapper.addEventListener("keydown", this.handleKeyUp.bind(this));
@@ -304,12 +327,12 @@ class AudioPlayer extends HTMLElement {
       this.audio.duration,
       this.audio.currentTime + n
     );
-    return this.audio.currentTime
+    return this.audio.currentTime;
   }
-  
+
   skipBack(n = 10) {
     this.audio.currentTime = Math.max(0, this.audio.currentTime - n);
-    return this.audio.currentTime
+    return this.audio.currentTime;
   }
 
   seekTo(key) {
@@ -451,7 +474,6 @@ ${this.inputRangeCss}
   disconnectedCallback() {}
   attributeChangedCallback(attrName, oldVal, newVal) {}
   adoptedCallback() {}
-
 }
 
 customElements.define("audio-player", AudioPlayer);

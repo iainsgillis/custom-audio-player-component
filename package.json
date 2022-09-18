@@ -1,6 +1,6 @@
 {
   "name": "custom-audio",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A pretty straightforward web component audio player I put together for a refresh\r of liovabueno.com. No configuration to speak of, although it relies on CSS\r custom properties for some styling.",
   "main": "audioplayer.js",
   "scripts": {
